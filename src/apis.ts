@@ -143,6 +143,46 @@ function createInstance(
   apiMap: ApisMap,
   common?: AxiosRequestConfig
 ): ApisInstance {
+  Apis.resMiddleware.push({
+    onFulfilled: void 0,
+    onRejected: function axiosRetryInterceptor(err) {
+      const config = err.config
+      /**
+       * 如果没有retry配置那么就不走这个拦截器
+       * 因为发生错误，我们还在这个拦截器中 request2 interceptor --> request1 interceptor-->dispatchRequest--> response1 interceptor--> response2 interceptor
+       * 这时候在拦截器中重新发起请求把得到的响应结果发给最后的Promise
+       * 最后的Promise注册中我们成功和失败的业务
+       * 这样可以避免：其他的那个几十个.vue页面的 this.$axios的get 和post 的方法根本就不需要去修改它们的代码。
+       */
+      if (!config || !config.retry) return Promise.reject(err)
+      /**
+       * 已经尝试retry的次数
+       */
+      config.__retryCount = config.__retryCount || 0
+
+      if (config.__retryCount >= config.retry) {
+        return Promise.reject(err)
+      }
+
+      config.__retryCount += 1
+      /**
+       * 等待多少秒后才进行retry
+       */
+      const backoff = new Promise(function(resolve) {
+        setTimeout(function() {
+          resolve()
+        }, config.retryDelay || 1)
+      })
+      return backoff.then(function() {
+        /**
+         * 返回结果
+         * 是个Promise对象
+         * 不reject 返回的数据被成功的回调拿到
+         */
+        return axios(config)
+      })
+    }
+  })
   const apis = new Apis(serverMap, apiMap, common)
   /**
    * new过后清空以前的拦截器队列
@@ -160,6 +200,7 @@ createInstance.useReq = function(
 ) {
   Apis.reqMiddleware.push({ onFulfilled, onRejected })
 }
+
 createInstance.useRes = function(onFulfilled?: ResolvedFn<AxiosResponse>, onRejected?: RejectedFn) {
   Apis.resMiddleware.push({ onFulfilled, onRejected })
 }

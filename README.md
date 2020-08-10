@@ -4,6 +4,7 @@
 - 支持多 host
 - 支持公共配置
 - 支持 restful 接口
+- 支持重新请求
 
 ## example
 
@@ -95,4 +96,24 @@ apis.getBaseInfo({ params: { name: 'vnues' } }).then(res => {
 apis.getBaseRestInfo({ rest: { id: 9527, test: 250 } }).then(res => {
   console.log(res)
 })
+```
+
+### 重新请求
+
+> 当网断了或者请求超时，我们想要 axios 重新发起请求，如何做到？
+
+```ts
+/**
+ * config配置{ retry: 5, retryDelay: 1000 }
+ * 尝试retry次数
+ * 隔多久进行retry
+ */
+axios
+  .get('/some/endpoint', { retry: 5, retryDelay: 1000 })
+  .then(function(res) {
+    console.log('success', res.data)
+  })
+  .catch(function(err) {
+    console.log('failed', err)
+  })
 ```
